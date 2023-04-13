@@ -1,0 +1,681 @@
+<!DOCTYPE html> 
+<html> 
+<head> 
+    <title>Gridworld</title> 
+    <style> 
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start; 
+            align-items: flex-start;
+            height: 50vh;
+            margin: 100px;
+            padding: 0;
+        }
+        .container {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+            max-width: 800px;
+            
+        }
+        .containerQ {
+            display: flex;
+            flex-wrap: wrap;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            max-width: 1000px;
+            
+        }
+        .grid { 
+            display: flex; 
+            flex-wrap: wrap; 
+            width: 500px; 
+            height: 500px; 
+            float:left;
+        }         
+        .cell { 
+            box-sizing: border-box; 
+            border: 1px solid grey; 
+            width: calc(100% / {{n}});
+            height: calc(100% / {{n}}); 
+            background-color: white; 
+            cursor: pointer; 
+            opacity: 0.6;
+        } 
+        .cell.start { 
+            background-color: green; 
+            opacity: 0.6;
+        } 
+        .cell.end { 
+            background-color: red; 
+            opacity: 0.6;
+
+        } 
+        .cell.block { 
+            background-color: burlywood; 
+            opacity: 0.6;
+        }
+        .cell.path {
+            background-color: rgb(255, 208, 52);
+            opacity: 1.0;
+        }
+        .cell.active {
+            background-color: rgb(110, 250, 180);
+            opacity: 1.0;
+        }
+        
+    
+        #flashContent {
+            width: 45%;
+        }
+        #flashContentQ{
+            width: 45%;
+            margin-left: 20px;
+        }
+        button {
+            margin-top: 20px;
+        }
+        #reset-grid-button {
+            display: block;
+            
+        }
+       
+    </style> 
+</head> 
+<body> 
+    <title>NCHU EE715   CT Hsu   DRL QL2GW   2023.3.24</title>
+    <h1>Grid world</h1> 
+    <div class="container">
+            <div class="row">            
+                <div class="grid"> 
+                    {% for i in range(n) %} 
+                        {% for j in range(n) %} 
+                            <div class="cell" data-row="{{ i }}" data-col="{{ j }}"></div> 
+                        {% endfor %} 
+                    {% endfor %} 
+                </div> 
+                <div id="grid"></div>
+                <button id="reset-grid-button">Reset Square</button>
+
+                <button id="block-toggle" class="btbtn" >Block Manaul adjust : Enable</button>
+                <button id="run-stop" class="rsbtn">Play Game</button>
+
+                <button id="Qgame-start" class="startqbtn">Q-game Start</button>
+                <button id="Qgame-auto" class="autoqbtn" disabled>Auto Q</button>
+            
+                <div class="Content" id="flashContent">
+                    <p> start : <span id="start"></span></p>
+                    <p> end : <span id="end"></span></p>
+                    <p> block : <span id="blocked"></span></p>
+                    <p> gamma : <span id="gamma"></span></p>
+                    <p> alpha : <span id="alpha"></span></p>
+                    
+                </div>            
+            </div>               
+            <div class="ContentQ" id="flashContentQ">                
+                <p> iteration : <span id="iteration"></span></p>
+                <p> position : <span id="position"></span></p>
+                <p> path : <span id="pathed"></span></p>
+
+                <p> reward : <span id="reward"></span></p>
+                <p> action : <span id="action"></span></p>
+                <p> next_position : <span id="next_position"></span></p>
+                <p>parameter : <br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;current  = <span id="current_q"> </span> <br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;alpha = <span id="palpha"></span> <br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;reward = <span id="preward"></span> <br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;gamma = <span id="pgamma"></span> <br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;action = <span id="paction"></span> <br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;max next = <span id="max_next_q"></span> <br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;next state = <span id="pnext_state"></span> <br>
+                    
+                </p> 
+            </div>
+        </div>
+    </div>
+   
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> 
+    <script src="https://cdn.jsdelivr.net/swfobject/2.2/swfobject.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_CHTML"></script>
+    <script>
+        
+    
+        $(document).ready(function(){
+            var boxn = {{n}};
+            var gamma = {{gamma}};
+            var alpha = {{alpha}};            
+
+            var blockMode = false;
+            var manualMode = false;
+            var Qmode = false;
+
+            var start = null;
+            var end = null;
+            var blocked = [];        
+            var pathed = [];
+        
+            function selectCells(row, col) {
+                if ($(`.cell[data-row=${row}][data-col=${col}]`).hasClass('block')) {
+                    $(`.cell[data-row=${row}][data-col=${col}]`).removeClass('block');
+                    blocked.splice(blocked.indexOf([row, col]), 1);
+                } else if (start == null) {
+                    $(`.cell[data-row=${row}][data-col=${col}]`).addClass('start');
+                    start = [row, col];
+                } else if (end == null) {
+                    $(`.cell[data-row=${row}][data-col=${col}]`).addClass('end');
+                    end = [row, col];
+                } else {
+                    $(`.cell[data-row=${row}][data-col=${col}]`).addClass('block');
+                    blocked.push([row, col]);
+                }           
+            }
+            // 
+            function selectPaths(row, col) {   
+                $('.cell').removeClass('active');
+                    const directions = ['up', 'right', 'down', 'left'];
+                    for (const direction of directions) {
+                        const [nextRow, nextCol] = getNextPosition(row, col, direction);
+                        if (
+                            nextRow >= 0 && nextRow < boxn &&
+                            nextCol >= 0 && nextCol < boxn &&
+                            !$(`.cell[data-row=${nextRow}][data-col=${nextCol}]`).hasClass('block') &&
+                            !$(`.cell[data-row=${nextRow}][data-col=${nextCol}]`).hasClass('path')
+                        ) {
+                            $(`.cell[data-row=${nextRow}][data-col=${nextCol}]`).addClass('active');
+                        }             
+                if ($(`.cell[data-row=${row}][data-col=${col}]`).hasClass('path')) {
+                    const pathedIndex = pathed.findIndex(([r, c]) => r === row && c === col);
+                    for (let i = pathedIndex+1; i <= pathed.length-1; i++) {
+                        var trg = pathed[i];
+                        $(`.cell[data-row=${trg[0]}][data-col=${trg[1]}]`).removeClass('path');
+                        }
+                        pathed.splice(pathedIndex+1);
+                } else {
+                    $(`.cell[data-row=${row}][data-col=${col}]`).addClass('path');
+                    pathed.push([row, col]);
+                    
+                    }
+                }
+                $('#pathed').text(JSON.stringify(pathed));
+            }
+
+            function isAdjacent(row1, col1, row2, col2) {
+                return (
+                    Math.abs(row1 - row2) <= 1 &&
+                    Math.abs(col1 - col2) <= 1 &&
+                    (row1 !== row2 || col1 !== col2)
+                );
+            }
+
+            function isBlocked(row, col) {
+                return $(`.cell[data-row=${row}][data-col=${col}]`).hasClass('blocked');
+            }
+            // 
+            function selectRandomCells() {
+                var numCells = $('.cell').length;
+                var numBlocks = Math.floor(numCells / boxn*2);
+                var blockedCells = new Set(blocked.map(cell => `${cell[0]},${cell[1]}`)); 
+                
+                while (blocked.length < numBlocks) {
+                    var randomCellIndex = Math.floor(Math.random() * numCells);
+                    var $randomCell = $('.cell').eq(randomCellIndex);
+                    var row = $randomCell.data('row');
+                    var col = $randomCell.data('col');
+
+                    var key = `${row},${col}`;
+                    if (key in blockedCells || (start && start[0] === row && start[1] === col) || (end && end[0] === row && end[1] === col)) {
+                        continue; 
+                    } else{
+                        selectCells(row, col);
+                        blockedCells.add(key);
+                    }
+
+                
+                }
+                reportParameter()
+            }
+            // 
+            function toggleManualMode() { 
+                blockMode = !blockMode;
+                var $btbtn = $('#block-toggle');
+                if (blockMode) {
+                    $btbtn.text(' Block Manaul adjust : Enable ').removeClass('btbtn-success').addClass('btbtn-danger');
+                    $('#run-stop').prop('disabled', false);
+                } else {
+                    $btbtn.text(' Block Manaul adjust : Disable ').removeClass('btbtn-danger').addClass('btbtn-success');
+                    $('#run-stop').prop('disabled', true);
+                }
+            }
+            // 
+            function runstopMode() { 
+                manualMode = !manualMode;
+                var $rsbtn = $('#run-stop');
+                if (manualMode) {
+                    $rsbtn.text('Stop Game ').removeClass('rsbtn-success').addClass('rsbtn-danger');
+                    $('#block-toggle').prop('disabled', true);
+                } else {
+                    $rsbtn.text('Play Game ').removeClass('rsbtn-danger').addClass('rsbtn-success');
+                    $('#block-toggle').prop('disabled', false);
+                }
+            }
+            // 
+            function resetCells() {
+                $('.cell').removeClass('start end block path active');
+                start = null;
+                end = null;
+                blocked = [];
+                pathed = []
+                
+
+                selectRandomCells();
+
+                $('#block-toggle').prop('disabled', false);
+                $('#run-stop').prop('disabled', false);
+                $('#run-stop').removeClass('rsbtn-danger').addClass('rsbtn-success').text('Play Game')
+                
+                $('#block-toggle').removeClass('rsbtn-danger').addClass('rsbtn-success').text('Block Manaul adjust : Enable')
+                
+                
+                
+            }
+
+            function show() {
+                    var tempwindow = window.open("", "tempwindow", "width=600,height=400");
+                    var html = `
+                        <html>
+                            <head>
+                                <style>
+                                    body {
+                                        display: flex;
+                                        flex-direction: column;
+                                        justify-content: center;
+                                        align-items: center;
+                                        height: 100vh;
+                                    }
+                                    .tempwindow {
+                                        display: flex;
+                                        flex-direction: column;
+                                        justify-content: center;
+                                        align-items: center;
+                                    }
+                                    .temp-dialog {
+                                        margin: auto;
+                                        background-color: #fff;
+                                        border: 1px solid #888;
+                                        width: 80%;
+                                        max-width: 600px;
+                                    }
+                                    .temp-header {
+                                        background-color: #007bff;
+                                        color: #fff;
+                                        text-align: center;
+                                        padding: 10px;
+                                    }
+                                    .temp-title {
+                                        white-space: pre-line;
+                                        margin: 0;
+                                    }
+                                    .temp-introduction {
+                                        padding: 20px;
+                                        text-align: center;
+                                    }
+                                    .temp-button {
+                                        text-align: center;
+                                        margin-bottom: 20px;
+                                    }                                
+                                    button {
+                                        padding: 10px;
+                                        background-color: #007bff;
+                                        color: #fff;
+                                        border: none;
+                                        border-radius: 5px;
+                                        cursor: pointer;
+                                        font-size: 16px;
+                                    }
+                                </style>
+                            </head>
+                            <body>
+                                <div class="tempwindow" id="temp" role="dialog">
+                                    <div class="temp-dialog">
+                                        <div class="temp-header">
+                                            <h1 class="temp-title">Congratulations!!  Mission complished</h1>
+                                        </div>
+                                        <div class="temp-introduction">
+                                            <p>You can choose to play again or adjust the difficulty of the game</p>
+                                        </div>
+                                        <div class="temp-button">
+                                            <button type="button" id="reset-grid-button" onclick="window.close();">Replay the game</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </body>
+                        </html>
+                    `;
+                    tempwindow.document.write(html);
+            }
+ 
+            $('#reset-grid-button').click(function() {resetCells()});
+            $('#block-toggle').click(function() {toggleManualMode()}); 
+            $('#run-stop').click(function(){runstopMode()}); 
+            $('.cell').click(function() {
+                if (blockMode) { // 如果手動模式啟用
+                    var row = $(this).data('row');
+                    var col = $(this).data('col');
+                    if (!$(this).hasClass('start') && !$(this).hasClass('end') ) { 
+                        selectCells(row, col);
+                    }
+                    } else { 
+                        selectRandomCells();
+                    }
+                if (manualMode) { // 如果遊戲模式啟用
+                    var $btbtn = $('#block-toggle');
+                    $btbtn.text(' Block Manaul adjust : Enable ').removeClass('btbtn-success').addClass('btbtn-danger');
+                    $('#block-toggle').prop('disabled', true);
+                    var path = pathed;
+                    var startpos = start;
+                    var endpos = end;
+                    var currentpos = path.length >0 ? path[path.length - 1] :startpos ;
+                    var row = $(this).data('row');
+                    var col = $(this).data('col');                     
+                    if (currentpos.toString() !== end.toString()) { 
+                        if ($(this).hasClass('start')) { 
+                            selectPaths(row, col);
+                            if (row === endpos[0] && col === endpos[1]) {
+                                show();
+                            }
+                        } else {
+                            if (path.length > 0 && $(this).data('row') === currentpos[0] && Math.abs($(this).data('col') - currentpos[1]) === 1 || $(this).data('col') === currentpos[1] && Math.abs($(this).data('row') - currentpos[0]) === 1) {
+                                if (!$(this).hasClass('start') && !$(this).hasClass('block')){selectPaths(row, col);}  
+                                if (row === endpos[0] && col === endpos[1]) {show();}                                                         
+                            }
+                            else if ($(this).hasClass('block')) {
+                                }
+                        }
+                        
+                    } else { 
+                        show();
+                    }
+                } else { 
+                    $btbtn.text(' Block Manaul adjust : Disable ').removeClass('btbtn-danger').addClass('btbtn-success');
+                    $('#block-toggle').prop('disabled', false);
+                    selectRandomCells();
+                    }
+            });
+
+            selectRandomCells();
+            
+
+            $('#Qgame-start').click(function() {
+                var $rsbtn = $('#run-stop');
+                var $btbtn = $('#block-toggle');
+                var $qsbtn = $('#Qgame-start');
+                
+
+                
+                
+                if (Qmode) {
+                    Qmode = false;
+                    $('#Qgame-auto').prop('disabled', true);
+                    $qsbtn.text(' Q-game Start ')   
+                    $btbtn.text(' Block Manaul adjust : Enable ').removeClass('btbtn-danger').addClass('btbtn-success');
+                    $('#block-toggle').prop('disabled', false);
+                    $rsbtn.text('Play Game ').removeClass('rsbtn-success').addClass('rsbtn-danger');
+                    $('#run-stop').prop('disabled', false);
+                    $(`.cell`).removeClass('path');
+                    resetCells();
+                } else {
+                    Qmode = true;  
+                    $('#Qgame-auto').prop('disabled', false);
+                    $qsbtn.text(' Q-game Stop') 
+                    $btbtn.text(' Block Manaul adjust : Disable ').removeClass('btbtn-success').addClass('btbtn-danger');
+                    $('#block-toggle').prop('disabled', true);
+                    $rsbtn.text('Stop Game ').removeClass('rsbtn-danger').addClass('rsbtn-success');
+                    $('#run-stop').prop('disabled', true);
+                    document.getElementById("start").textContent = start;
+                    document.getElementById("end").textContent = end;
+                    $('#block').text(JSON.stringify(blocked));        
+                    document.getElementById("gamma").textContent = gamma;
+                    document.getElementById("alpha").textContent = alpha;
+                    
+                    
+                }
+                
+            });
+
+            function reportParameter(iter, position, state, action, reward, q_table, next_position) {
+                $('#start').text(start);
+                $('#end').text(end);
+                $('#blocked').text(JSON.stringify(blocked));
+                $('#pathed').text(JSON.stringify(pathed));
+                document.getElementById("gamma").textContent = gamma;
+                document.getElementById("alpha").textContent = alpha;
+                
+                $('#iteration').text(iter);
+                $('#position').text(position);
+
+                $('#state').text(state);
+
+                
+                
+
+                $('#action').text(JSON.stringify(action));
+                $('#reward').text(reward);
+                $('#next_position').text(next_position);
+                $('#q_table').text(JSON.stringify(q_table));
+               
+            }
+            $('#Qgame-auto').click(function() {
+                var q_table = {};
+                var all_actions = ['up', 'down', 'left', 'right'];
+                for (var i = 0; i < boxn; i++) {
+                    for (var j = 0; j < boxn; j++) {
+                        var state = get_state(blocked, i, j, boxn ,end);
+                        q_table[state] = {};
+                        for (var k = 0; k < all_actions.length; k++) {
+                            q_table[state][all_actions[k]] = 0.0;
+                            
+                        }
+                    }
+                }                
+               
+                var position = start ;
+     
+                selectPaths(position[0], position[1]);     
+  
+                var iter = 1;
+               
+                
+                function gameLoop() {
+                 
+                    var row = position[0];
+                    var col = position[1];
+                    var state = get_state(blocked, row, col, boxn , end);
+                    
+                    var action = get_action(blocked, state, row, col, boxn, end);
+                    next_position = getNextPosition(row, col, action);              
+                    reward = get_reward(next_position, action, end, boxn);   
+                    
+                    q_table = update_q_table(blocked, next_position, alpha, gamma, state, action, reward, q_table, boxn, end); 
+                    
+                    selectPaths(next_position[0], next_position[1]);
+                    position = next_position;                    
+                    
+                    if (position[0] === end[0] && position[1] === end[1]) {
+                        show();
+                        reportParameter(iter, position, state, action, reward, q_table, next_position);
+                    } else {
+                        iter++; 
+                        
+                        setTimeout(gameLoop, 1000); 
+                        reportParameter(iter, position, state, action, reward, q_table, next_position);
+                    }
+
+                }
+                gameLoop();
+            });
+            
+
+            function update_q_table(blocked, next_position, alpha, gamma, state, action, reward, q_table, boxn, end) {
+                var all_actions = ['up', 'down', 'left', 'right'];
+                $('#palpha').text(alpha);
+                $('#pgamma').text(gamma);
+                $('#preward').text(reward);
+
+                var next_state = get_state(blocked, next_position[0], next_position[1], boxn, end);           
+                
+                
+                var updated_q = {};
+                for (var k = 0; k < all_actions.length; k++) {
+                    var current_action = all_actions[k];
+                    var current_q = q_table[state]?.[action.toString()] ;
+                    var max_next_q = Math.max(...Object.values(q_table[next_state]));
+                    $('#paction').text(action);
+                    $('#current_q').text(current_q);
+                    $('#max_next_q').text(JSON.stringify(max_next_q));
+                    if (current_action === action) {
+                        updated_q[current_action] = current_q + alpha * (reward + gamma * max_next_q - current_q);
+                    } else {
+                        updated_q[current_action] = q_table[state][current_action];
+                    }
+                }
+                q_table[state] = updated_q;
+                
+                $('#pnext_state').text(JSON.stringify(updated_q));
+
+                return q_table;
+            }
+
+            function get_action(blocked, state, row, col, boxn, lastPos) {
+                var gactions = [];
+                var distances = [];
+                var manhattanDistance = Math.abs(row - lastPos[0]) + Math.abs(col - lastPos[1]);
+
+                if (row > 0) {
+                    var up = [row - 1, col];
+                    var upDistance = Math.abs(up[0] - lastPos[0]) + Math.abs(up[1] - lastPos[1]);
+                    if (!blocked.some(([x, y]) => x == up[0] && y == up[1]) && !(lastPos[0] == up[0] && lastPos[1] == up[1])) {
+                        gactions.push('up');
+                        distances.push(upDistance);
+                    }
+                }
+                if (row < boxn - 1) {
+                    var down = [row + 1, col];
+                    var downDistance = Math.abs(down[0] - lastPos[0]) + Math.abs(down[1] - lastPos[1]);
+                    if (!blocked.some(([x, y]) => x == down[0] && y == down[1]) && !(lastPos[0] == down[0] && lastPos[1] == down[1])) {
+                        gactions.push('down');
+                        distances.push(downDistance);
+                    }
+                }
+                if (col < boxn - 1) {
+                    var right = [row, col + 1];
+                    var rightDistance = Math.abs(right[0] - lastPos[0]) + Math.abs(right[1] - lastPos[1]);
+                    if (!blocked.some(([x, y]) => x == right[0] && y == right[1]) && !(lastPos[0] == right[0] && lastPos[1] == right[1])) {
+                        gactions.push('right');
+                        distances.push(rightDistance);
+                    }
+                }
+                if (col > 0) {
+                    var left = [row, col - 1];
+                    var leftDistance = Math.abs(left[0] - lastPos[0]) + Math.abs(left[1] - lastPos[1]);
+                    if (!blocked.some(([x, y]) => x == left[0] && y == left[1]) && !(lastPos[0] == left[0] && lastPos[1] == left[1])) {
+                        gactions.push('left');
+                        distances.push(leftDistance);
+                    }
+                }
+                
+                var actionDistancePairs = gactions.map((action, index) => [action, distances[index]]);
+                actionDistancePairs.sort((a, b) => a[1] - b[1]);
+                
+                var bestActions = actionDistancePairs.filter(([action, distance]) => distance == actionDistancePairs[0][1]).map(([action, distance]) => action);
+  
+                if (manhattanDistance == 0) {
+                    return 'stop';
+                }
+                if (manhattanDistance === 1) { 
+                    if (lastPos[0] > row) {
+                        return 'down';
+                    } else if (lastPos[0] < row) {
+                        return 'up';
+                    } else if (lastPos[1] > col) {
+                        return 'right';
+                    } else if (lastPos[1] < col) {
+                        return 'left';
+                    }
+                }
+
+                if (bestActions.length > 1) {
+                    var index = Math.floor(Math.random() * bestActions.length);
+                    return bestActions[index];
+                }
+                $('#bestActions').text(JSON.stringify(bestActions));
+                return bestActions[0];
+            }
+
+            function getNextPosition(row, col, action) {
+                switch(action) {
+                    case 'up':
+                        return [row - 1, col];
+                    case 'down':
+                        return [row + 1, col];
+                    case 'left':
+                        return [row, col - 1];
+                    case 'right':
+                        return [row, col + 1];
+                    case 'stop':
+                        return show()
+
+                }
+            }
+            function get_state(blocked, row, col, n, end) {
+                var state = [];
+                for (var i = 0; i < n; i++) {
+                    var rowArr = [];
+                    for (var j = 0; j < n; j++) {
+                        if (i === row && j === col) {
+                            rowArr.push('A');
+                        } else if (blocked.some(([x, y]) => x === i && y === j)) {
+                            rowArr.push('X');
+                        } else if (i == end[0] && j == end[1]) {
+                            rowArr.push('B');
+                        } else {
+                            var distance = Math.abs(i - end[0]) + Math.abs(j - end[1]);
+                            var feedback = 0;
+                            for (var k = 0; k < distance; k++) {
+                                feedback += 1;
+                            }
+                            if (feedback < 10) {
+                                feedback = '0' + feedback.toString();
+                            }
+                            rowArr.push(feedback.toString());
+                        }
+                    }
+                    state.push(rowArr);
+                }
+                return state;
+            }
+            
+            function get_reward(next_position, action, end, boxn) {
+                if (next_position[0] < 0 || next_position[0] > boxn || next_position[1] < 0 || next_position[1] > boxn) {
+                    return -10;
+                } else if (blocked.some(([x, y]) => next_position[0] == x && next_position[1] == y)) {
+                    return -10;
+                } else if (next_position[0] === end[0] && next_position[1] === end[1]) {
+                    return 100;
+                } else {
+                    const distToTarget = Math.abs(next_position[0] - end[0]) + Math.abs(next_position[1] - end[1]);
+                    const reward = 10 - distToTarget;
+                    return reward >= 0 ? reward : 0;
+                }
+            }    
+  
+        });
+
+    </script>
+</body> 
+</html> 
