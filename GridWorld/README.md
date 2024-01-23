@@ -1,5 +1,5 @@
 ## Algorithm and flowchart for Gridworld
-<img src="https://github.com/CTHMIT/Q-Learning/assets/107465888/523dd135-8454-445c-bcb2-d68e047073d1" alt="image" height="500px" width="750px"/>
+<img src="https://github.com/CTHMIT/Q-Learning/assets/107465888/523dd135-8454-445c-bcb2-d68e047073d1" alt="image" height="500px" width="550px"/>
 
 ## grid world in flask web
 
