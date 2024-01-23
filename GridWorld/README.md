@@ -1,5 +1,5 @@
 ## Algorithm and flowchart for Gridworld
-<img src="https://github.com/CTHMIT/Q-Learning/assets/107465888/523dd135-8454-445c-bcb2-d68e047073d1" alt="image" />
+<img src="https://github.com/CTHMIT/Q-Learning/assets/107465888/523dd135-8454-445c-bcb2-d68e047073d1" alt="image" height="500px" width="750px"/>
 
 ## grid world in flask web
 
@@ -20,4 +20,5 @@ python ./app.py
 ### If you want Auto with Q-Learning
 Play Game or Q-game start then Push Auto Q
 
-![image](https://github.com/CTHMIT/Q-Learning/assets/107465888/d4cafd6c-ae1c-469c-883a-bb0541e31e3a)
+![image](https://github.com/CTHMIT/Q-Learning/assets/107465888/c70bbb77-d015-45f6-a10d-c216733dd784)
+
