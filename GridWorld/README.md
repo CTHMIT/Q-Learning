@@ -19,3 +19,5 @@ python ./app.py
 
 ### If you want Auto with Q-Learning
 Play Game or Q-game start then Push Auto Q
+
+![image](https://github.com/CTHMIT/Q-Learning/assets/107465888/d4cafd6c-ae1c-469c-883a-bb0541e31e3a)
